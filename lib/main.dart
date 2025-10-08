@@ -1,112 +1,114 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const PetIdadeApp());
 }
 
-const double alturaBotao = 80.0;
+enum Pet { cachorro, gato }
+
 const Color fundo = Color(0xFF1E164B);
-const Color fundoSelecionado = Color.fromARGB(255, 45, 11, 237);
+const Color selecionada = Color.fromARGB(255, 45, 11, 237);
+const double alturaBotao = 80.0;
 
-enum Sexo { masculino, feminino }
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class PetIdadeApp extends StatelessWidget {
+  const PetIdadeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: ThemeData.dark(),
       debugShowCheckedModeBanner: false,
-      home: const CalculadoraIMC(),
+      theme: ThemeData.dark(),
+      home: const TelaPet(),
     );
   }
 }
 
-class CalculadoraIMC extends StatefulWidget {
-  const CalculadoraIMC({super.key});
+class TelaPet extends StatefulWidget {
+  const TelaPet({super.key});
 
   @override
-  State<CalculadoraIMC> createState() => _CalculadoraIMCState();
+  State<TelaPet> createState() => _TelaPetState();
 }
 
-class _CalculadoraIMCState extends State<CalculadoraIMC> {
-  double altura = 1.70; // em metros
-  int peso = 65;
-  double? resultadoIMC;
-  String categoria = '';
-  Sexo? sexoSelecionado;
+class _TelaPetState extends State<TelaPet> {
+  Pet? petSelecionado;
+  int idadeReal = 1;
+  double peso = 5.0; // em kg
+  double idadeFisiologica = 0.0;
 
-  void calcularIMC() {
+  void selecionarPet(Pet pet) {
     setState(() {
-      resultadoIMC = peso / (altura * altura);
-      categoria = _classificarIMC(resultadoIMC!);
+      petSelecionado = pet;
     });
   }
 
-  String _classificarIMC(double imc) {
-    if (imc < 18.5) return 'Abaixo do peso';
-    if (imc < 25) return 'Peso normal';
-    if (imc < 30) return 'Sobrepeso';
-    return 'Obesidade';
-  }
+  void calcularIdadeFisiologica() {
+    double result = 0.0;
+    if (petSelecionado == null) {
+      result = 0.0;
+    } else if (petSelecionado == Pet.cachorro) {
+      if (idadeReal <= 0) {
+        result = 0.0;
+      } else if (idadeReal == 1) {
+        result = 15;
+      } else {
+        // Fórmula exemplo: primeiro ano = 15, depois 5 + ajuste por peso
+        double ajuste = peso / 10.0; // exemplo: +0.5 anos por cada 10 kg
+        double fator = 5 + ajuste;
+        result = 15 + (idadeReal - 1) * fator;
+      }
+    } else if (petSelecionado == Pet.gato) {
+      if (idadeReal <= 0) {
+        result = 0.0;
+      } else if (idadeReal == 1) {
+        result = 15;
+      } else {
+        // Fórmula exemplo para gato: cada ano após o primeiro = 4 anos humanos
+        result = 15 + (idadeReal - 1) * 4;
+      }
+    }
 
-  void selecionarSexo(Sexo sexo) {
     setState(() {
-      sexoSelecionado = sexo;
+      idadeFisiologica = result;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('IMC')),
+      appBar: AppBar(
+        title: const Text('Idade Fisiológica Pet'),
+      ),
       body: Column(
         children: [
-          // Gênero
+          // Seleção: Cachorro / Gato
           Expanded(
             child: Row(
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => selecionarSexo(Sexo.masculino),
+                    onTap: () => selecionarPet(Pet.cachorro),
                     child: Caixa(
-                      cor: sexoSelecionado == Sexo.masculino
-                          ? fundoSelecionado
-                          : fundo,
-                      filho: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.male, color: Colors.white, size: 80.0),
-                          SizedBox(height: 15),
-                          Text(
-                            'MASC',
-                            style:
-                                TextStyle(fontSize: 18.0, color: Colors.white),
-                          ),
-                        ],
+                      cor: petSelecionado == Pet.cachorro ? selecionada : fundo,
+                      filho: const Center(
+                        child: Text(
+                          'CACHORRO',
+                          style: TextStyle(color: Colors.white, fontSize: 20),
+                        ),
                       ),
                     ),
                   ),
                 ),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => selecionarSexo(Sexo.feminino),
+                    onTap: () => selecionarPet(Pet.gato),
                     child: Caixa(
-                      cor: sexoSelecionado == Sexo.feminino
-                          ? fundoSelecionado
-                          : fundo,
-                      filho: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.female, color: Colors.white, size: 80.0),
-                          SizedBox(height: 15),
-                          Text(
-                            'FEM',
-                            style:
-                                TextStyle(fontSize: 18.0, color: Colors.white),
-                          ),
-                        ],
+                      cor: petSelecionado == Pet.gato ? selecionada : fundo,
+                      filho: const Center(
+                        child: Text(
+                          'GATO',
+                          style: TextStyle(color: Colors.white, fontSize: 20),
+                        ),
                       ),
                     ),
                   ),
@@ -115,7 +117,7 @@ class _CalculadoraIMCState extends State<CalculadoraIMC> {
             ),
           ),
 
-          // Altura
+          // Peso Slider
           Expanded(
             child: Caixa(
               cor: fundo,
@@ -123,26 +125,23 @@ class _CalculadoraIMCState extends State<CalculadoraIMC> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Altura (m):',
-                    style: TextStyle(fontSize: 18.0, color: Colors.grey),
+                    'Peso (kg):',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 10),
                   Text(
-                    altura.toStringAsFixed(2),
-                    style: const TextStyle(
-                        fontSize: 24.0,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold),
+                    peso.toStringAsFixed(1),
+                    style: const TextStyle(fontSize: 24, color: Colors.white),
                   ),
                   Slider(
-                    value: altura,
-                    min: 1.20,
-                    max: 2.20,
-                    divisions: 100,
-                    label: altura.toStringAsFixed(2),
-                    onChanged: (double novoValor) {
+                    value: peso,
+                    min: 1.0,
+                    max: 100.0,
+                    divisions: 990,
+                    label: peso.toStringAsFixed(1),
+                    onChanged: (double novo) {
                       setState(() {
-                        altura = novoValor;
+                        peso = novo;
                       });
                     },
                   ),
@@ -151,104 +150,80 @@ class _CalculadoraIMCState extends State<CalculadoraIMC> {
             ),
           ),
 
-          // Peso e Resultado
+          // Idade real + botões + resultado
           Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Caixa(
-                    cor: fundo,
-                    filho: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Peso (kg):',
-                          style: TextStyle(fontSize: 18.0, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 15),
-                        Text(
-                          '$peso',
-                          style: const TextStyle(
-                              fontSize: 24.0,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 15),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  peso++;
-                                });
-                              },
-                              icon: const Icon(Icons.add, color: Colors.white),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  if (peso > 1) peso--;
-                                });
-                              },
-                              icon:
-                                  const Icon(Icons.remove, color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+            child: Caixa(
+              cor: fundo,
+              filho: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Idade real (anos):',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
-                ),
-                Expanded(
-                  child: Caixa(
-                    cor: fundo,
-                    filho: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Resultado:',
-                          style: TextStyle(fontSize: 18.0, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 15),
-                        Text(
-                          resultadoIMC == null
-                              ? '--'
-                              : resultadoIMC!.toStringAsFixed(1),
-                          style: const TextStyle(
-                              fontSize: 24.0,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          categoria,
-                          style: const TextStyle(
-                              fontSize: 16.0, color: Colors.grey),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '$idadeReal',
+                    style: const TextStyle(fontSize: 24, color: Colors.white),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          if (idadeReal > 0) {
+                            setState(() {
+                              idadeReal--;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.remove, color: Colors.white),
+                      ),
+                      const SizedBox(width: 20),
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            idadeReal++;
+                          });
+                        },
+                        icon: const Icon(Icons.add, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Idade fisiológica:',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    idadeFisiologica > 0
+                        ? idadeFisiologica.toStringAsFixed(1)
+                        : '--',
+                    style: const TextStyle(fontSize: 28, color: Colors.white),
+                  ),
+                ],
+              ),
             ),
           ),
 
-          // Botão Calcular
+          // Botão calcular
           GestureDetector(
-            onTap: calcularIMC,
+            onTap: calcularIdadeFisiologica,
             child: Container(
-              color: const Color(0xFF638ED6),
               width: double.infinity,
               height: alturaBotao,
-              margin: const EdgeInsets.only(top: 10.0),
+              margin: const EdgeInsets.only(top: 10),
+              color: const Color(0xFF638ED6),
               alignment: Alignment.center,
               child: const Text(
-                'CALCULAR IMC',
+                'CALCULAR',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -267,11 +242,9 @@ class Caixa extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(10.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.0),
-        color: cor,
-      ),
+      margin: const EdgeInsets.all(10),
+      decoration:
+          BoxDecoration(borderRadius: BorderRadius.circular(10), color: cor),
       child: filho,
     );
   }
