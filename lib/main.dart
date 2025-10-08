@@ -1,153 +1,278 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  runApp(const QuizApp());
+  runApp(const MyApp());
 }
 
-class Pergunta {
-  final String texto;
-  final String resposta;
+const double alturaBotao = 80.0;
+const Color fundo = Color(0xFF1E164B);
+const Color fundoSelecionado = Color.fromARGB(255, 45, 11, 237);
 
-  Pergunta({required this.texto, required this.resposta});
-}
+enum Sexo { masculino, feminino }
 
-class QuizApp extends StatefulWidget {
-  const QuizApp({super.key});
-
-  @override
-  State<QuizApp> createState() => _QuizAppState();
-}
-
-class _QuizAppState extends State<QuizApp> {
-  int numeroPergunta = 0;
-  List<Widget> resultado = [];
-  final TextEditingController respostaCtrl = TextEditingController();
-  String feedback = "";
-
-  final List<Pergunta> perguntas = [
-    Pergunta(texto: "Qual é a capital do Canadá?", resposta: "Ottawa"),
-    Pergunta(texto: "Quem pintou a Mona Lisa?", resposta: "Leonardo da Vinci"),
-    Pergunta(
-        texto: "Qual é o maior oceano do planeta?",
-        resposta: "Oceano Pacífico"),
-    Pergunta(texto: "O Sol é uma estrela?", resposta: "Sim"),
-    Pergunta(texto: "Quem escreveu 'A Ilíada'?", resposta: "Homero"),
-    Pergunta(texto: "Quantos estados tem o Brasil?", resposta: "26"),
-    Pergunta(
-        texto: "Qual o metal usado em cabos elétricos?", resposta: "Cobre"),
-    Pergunta(texto: "A água ferve a 90°C no nível do mar?", resposta: "Não"),
-    Pergunta(texto: "O corpo humano tem 206 ossos?", resposta: "Sim"),
-    Pergunta(texto: "O Egito fica na América?", resposta: "Não"),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _carregarEstado();
-  }
-
-  Future<void> _carregarEstado() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      numeroPergunta = prefs.getInt("numeroPergunta") ?? 0;
-    });
-  }
-
-  Future<void> _salvarEstado() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setInt("numeroPergunta", numeroPergunta);
-  }
-
-  void responder() {
-    String respostaUsuario = respostaCtrl.text.trim();
-    String respostaCerta = perguntas[numeroPergunta].resposta;
-
-    setState(() {
-      if (respostaUsuario.toLowerCase() == respostaCerta.toLowerCase()) {
-        resultado.add(const Icon(Icons.check, color: Colors.green));
-        feedback = "✅ Correto!";
-      } else {
-        resultado.add(const Icon(Icons.close, color: Colors.red));
-        feedback = "❌ Errado! Resposta: $respostaCerta";
-      }
-
-      if (numeroPergunta < perguntas.length - 1) {
-        numeroPergunta++;
-        _salvarEstado();
-      } else {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Fim do Quiz"),
-            content: Text("Você completou ${perguntas.length} perguntas!"),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    numeroPergunta = 0;
-                    resultado.clear();
-                    feedback = "";
-                  });
-                  _salvarEstado();
-                  Navigator.pop(context);
-                },
-                child: const Text("Reiniciar"),
-              )
-            ],
-          ),
-        );
-      }
-    });
-
-    respostaCtrl.clear();
-  }
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Center(
-                  child: Text(
-                    perguntas[numeroPergunta].texto,
-                    style: const TextStyle(fontSize: 26),
-                    textAlign: TextAlign.center,
+      theme: ThemeData.dark(),
+      debugShowCheckedModeBanner: false,
+      home: const CalculadoraIMC(),
+    );
+  }
+}
+
+class CalculadoraIMC extends StatefulWidget {
+  const CalculadoraIMC({super.key});
+
+  @override
+  State<CalculadoraIMC> createState() => _CalculadoraIMCState();
+}
+
+class _CalculadoraIMCState extends State<CalculadoraIMC> {
+  double altura = 1.70; // em metros
+  int peso = 65;
+  double? resultadoIMC;
+  String categoria = '';
+  Sexo? sexoSelecionado;
+
+  void calcularIMC() {
+    setState(() {
+      resultadoIMC = peso / (altura * altura);
+      categoria = _classificarIMC(resultadoIMC!);
+    });
+  }
+
+  String _classificarIMC(double imc) {
+    if (imc < 18.5) return 'Abaixo do peso';
+    if (imc < 25) return 'Peso normal';
+    if (imc < 30) return 'Sobrepeso';
+    return 'Obesidade';
+  }
+
+  void selecionarSexo(Sexo sexo) {
+    setState(() {
+      sexoSelecionado = sexo;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('IMC')),
+      body: Column(
+        children: [
+          // Gênero
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => selecionarSexo(Sexo.masculino),
+                    child: Caixa(
+                      cor: sexoSelecionado == Sexo.masculino
+                          ? fundoSelecionado
+                          : fundo,
+                      filho: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.male, color: Colors.white, size: 80.0),
+                          SizedBox(height: 15),
+                          Text(
+                            'MASC',
+                            style:
+                                TextStyle(fontSize: 18.0, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              TextField(
-                controller: respostaCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Digite sua resposta",
-                  border: OutlineInputBorder(),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => selecionarSexo(Sexo.feminino),
+                    child: Caixa(
+                      cor: sexoSelecionado == Sexo.feminino
+                          ? fundoSelecionado
+                          : fundo,
+                      filho: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.female, color: Colors.white, size: 80.0),
+                          SizedBox(height: 15),
+                          Text(
+                            'FEM',
+                            style:
+                                TextStyle(fontSize: 18.0, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: responder,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(200, 50),
-                ),
-                child: const Text("Responder"),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                feedback,
-                style: const TextStyle(fontSize: 20),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Wrap(children: resultado),
-            ],
+              ],
+            ),
           ),
-        ),
+
+          // Altura
+          Expanded(
+            child: Caixa(
+              cor: fundo,
+              filho: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Altura (m):',
+                    style: TextStyle(fontSize: 18.0, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    altura.toStringAsFixed(2),
+                    style: const TextStyle(
+                        fontSize: 24.0,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  Slider(
+                    value: altura,
+                    min: 1.20,
+                    max: 2.20,
+                    divisions: 100,
+                    label: altura.toStringAsFixed(2),
+                    onChanged: (double novoValor) {
+                      setState(() {
+                        altura = novoValor;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Peso e Resultado
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Caixa(
+                    cor: fundo,
+                    filho: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Peso (kg):',
+                          style: TextStyle(fontSize: 18.0, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          '$peso',
+                          style: const TextStyle(
+                              fontSize: 24.0,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 15),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  peso++;
+                                });
+                              },
+                              icon: const Icon(Icons.add, color: Colors.white),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  if (peso > 1) peso--;
+                                });
+                              },
+                              icon:
+                                  const Icon(Icons.remove, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Caixa(
+                    cor: fundo,
+                    filho: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Resultado:',
+                          style: TextStyle(fontSize: 18.0, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          resultadoIMC == null
+                              ? '--'
+                              : resultadoIMC!.toStringAsFixed(1),
+                          style: const TextStyle(
+                              fontSize: 24.0,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          categoria,
+                          style: const TextStyle(
+                              fontSize: 16.0, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Botão Calcular
+          GestureDetector(
+            onTap: calcularIMC,
+            child: Container(
+              color: const Color(0xFF638ED6),
+              width: double.infinity,
+              height: alturaBotao,
+              margin: const EdgeInsets.only(top: 10.0),
+              alignment: Alignment.center,
+              child: const Text(
+                'CALCULAR IMC',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class Caixa extends StatelessWidget {
+  final Color cor;
+  final Widget? filho;
+
+  const Caixa({super.key, required this.cor, this.filho});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(10.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10.0),
+        color: cor,
+      ),
+      child: filho,
     );
   }
 }
