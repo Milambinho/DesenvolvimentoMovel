@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../database/db_helper.dart';
-import 'historico_page.dart';
+import 'package:intl/intl.dart';
+import '../models/task.dart';
+import '../services/db_helper.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -11,159 +12,199 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final DBHelper dbHelper = DBHelper();
-  String display = '0';
-  String memoria = '0';
-  String expressao = '';
+  List<Task> tasks = [];
+  String? selectedDate;
+
+  final titleCtrl = TextEditingController();
+  final descCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    carregarDados();
+    _loadTasks();
   }
 
-  Future<void> carregarDados() async {
-    final dados = await dbHelper.getDados();
+  Future<void> _loadTasks({String? date}) async {
+    final loadedTasks = await dbHelper.getTasks(date: date);
     setState(() {
-      display = dados['numero_atual'];
-      memoria = dados['memoria'];
+      tasks = loadedTasks;
     });
   }
 
-  void atualizarBanco() {
-    dbHelper.updateDados(display, memoria);
+  Future<void> _addTask() async {
+    if (titleCtrl.text.isEmpty) return;
+    final now = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final task = Task(
+      title: titleCtrl.text,
+      description: descCtrl.text,
+      date: now,
+    );
+    await dbHelper.insertTask(task);
+    titleCtrl.clear();
+    descCtrl.clear();
+    await _loadTasks();
   }
 
-  void pressionar(String valor) {
-    setState(() {
-      if (valor == 'C') {
-        display = '0';
-        expressao = '';
-      } else if (['+', '-', '*', '/'].contains(valor)) {
-        expressao = '$display $valor';
-        display = '0';
-      } else if (valor == '=') {
-        try {
-          final partes = expressao.split(' ');
-          if (partes.length == 2) {
-            final n1 = double.parse(partes[0]);
-            final op = partes[1];
-            final n2 = double.parse(display);
-            double resultado = 0;
-
-            switch (op) {
-              case '+':
-                resultado = n1 + n2;
-                break;
-              case '-':
-                resultado = n1 - n2;
-                break;
-              case '*':
-                resultado = n1 * n2;
-                break;
-              case '/':
-                resultado = n2 != 0 ? n1 / n2 : double.nan;
-                break;
-            }
-
-            dbHelper.salvarOperacao('$n1 $op $n2', resultado.toString());
-            display = resultado.toString();
-            expressao = '';
-          }
-        } catch (_) {
-          display = 'Erro';
-        }
-      } else if (valor == 'MC') {
-        memoria = '0';
-      } else if (valor == 'MR') {
-        display = memoria;
-      } else if (valor == 'M+') {
-        memoria = (double.parse(memoria) + double.parse(display)).toString();
-      } else if (valor == 'M-') {
-        memoria = (double.parse(memoria) - double.parse(display)).toString();
-      } else {
-        display = display == '0' ? valor : display + valor;
-      }
-
-      atualizarBanco();
-    });
+  Future<void> _toggleDone(Task task) async {
+    task.isDone = !task.isDone;
+    await dbHelper.updateTask(task);
+    await _loadTasks();
   }
 
-  Widget botao(String txt, {Color? cor}) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(6.0),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: cor ?? Colors.grey[800],
-            padding: const EdgeInsets.all(20),
-          ),
-          onPressed: () => pressionar(txt),
-          child: Text(
-            txt,
-            style: const TextStyle(fontSize: 22),
-          ),
+  Future<void> _editTask(Task task) async {
+    titleCtrl.text = task.title;
+    descCtrl.text = task.description;
+
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Editar tarefa'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(labelText: 'Título'),
+            ),
+            TextField(
+              controller: descCtrl,
+              decoration: const InputDecoration(labelText: 'Descrição'),
+            ),
+          ],
         ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              task.title = titleCtrl.text;
+              task.description = descCtrl.text;
+              await dbHelper.updateTask(task);
+              if (mounted) Navigator.pop(context);
+              await _loadTasks();
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _filterByDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      final formatted = DateFormat('yyyy-MM-dd').format(picked);
+      setState(() => selectedDate = formatted);
+      await _loadTasks(date: formatted);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Calculadora SQLite'),
-        backgroundColor: Colors.black87,
+        title: const Text('Lista de Tarefas'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const HistoricoPage()),
-            ),
+            icon: const Icon(Icons.calendar_today),
+            onPressed: _filterByDate,
+          ),
+          IconButton(
+            icon: const Icon(Icons.list),
+            onPressed: () => _loadTasks(),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              alignment: Alignment.bottomRight,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.end,
+      body: tasks.isEmpty
+          ? const Center(
+              child: Text(
+                'Nenhuma tarefa ainda!',
+                style: TextStyle(fontSize: 18),
+              ),
+            )
+          : ListView.builder(
+              itemCount: tasks.length,
+              itemBuilder: (_, i) {
+                final t = tasks[i];
+                return Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: ListTile(
+                    title: Text(
+                      t.title,
+                      style: TextStyle(
+                        decoration:
+                            t.isDone ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${t.description}\nData: ${t.date}',
+                    ),
+                    isThreeLine: true,
+                    trailing: Wrap(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _editTask(t),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            t.isDone
+                                ? Icons.check_box
+                                : Icons.check_box_outline_blank,
+                            color: t.isDone ? Colors.green : null,
+                          ),
+                          onPressed: () => _toggleDone(t),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          titleCtrl.clear();
+          descCtrl.clear();
+          await showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Nova Tarefa'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('M: $memoria',
-                      style: const TextStyle(color: Colors.grey)),
-                  Text(
-                    display,
-                    style: const TextStyle(fontSize: 48, color: Colors.white),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'Título'),
+                  ),
+                  TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(labelText: 'Descrição'),
                   ),
                 ],
               ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar')),
+                ElevatedButton(
+                  onPressed: () async {
+                    await _addTask();
+                    if (mounted) Navigator.pop(context);
+                  },
+                  child: const Text('Salvar'),
+                ),
+              ],
             ),
-          ),
-          Column(
-            children: [
-              Row(children: [
-                botao('MC'),
-                botao('MR'),
-                botao('M+'),
-                botao('M-')
-              ]),
-              Row(children: [botao('7'), botao('8'), botao('9'), botao('/')]),
-              Row(children: [botao('4'), botao('5'), botao('6'), botao('*')]),
-              Row(children: [botao('1'), botao('2'), botao('3'), botao('-')]),
-              Row(children: [
-                botao('0'),
-                botao('C', cor: Colors.red),
-                botao('=', cor: Colors.green),
-                botao('+')
-              ]),
-            ],
-          ),
-        ],
+          );
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
